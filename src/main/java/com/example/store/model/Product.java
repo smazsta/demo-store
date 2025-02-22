@@ -1,51 +1,35 @@
 package com.example.store.model;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Entity
 public class Product {
 
   @Id
-  private String uuid;
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-  @NotNull(message = "Product name cannot be null")
-  @NotBlank
-  @Size(min = 1, max = 100, message = "Invalid product name size")
   private String name;
 
-  // todo add check for decimal .2
-  @NotNull(message = "Price cannot be null")
-  @Positive(message = "Price must be a positive number")
   private BigDecimal price;
 
-  @PositiveOrZero
   private int stock;
 
   public Product() {
     // empty
   }
 
-  public Product(String name, BigDecimal price, int stock) {
-    this.name = name;
-    this.price = price;
-    this.stock = stock;
+  public Long getId() {
+    return id;
   }
 
-  @PrePersist
-  private void setUuid() {
-    if (this.uuid == null) {
-      this.uuid = UUID.randomUUID().toString();
-    }
-  }
-
-  public String getUuid() {
-    return uuid;
+  public void setId(Long id) {
+    this.id = id;
   }
 
   public String getName() {
@@ -74,11 +58,42 @@ public class Product {
 
   @Override
   public String toString() {
-    return "Product{" +
-        "uuid='" + uuid + '\'' +
-        ", name='" + name + '\'' +
-        ", price=" + price +
-        ", stock=" + stock +
-        '}';
+    return "Product{" + "id=" + id + ", name='" + name + '\'' + ", price=" + price + ", stock=" + stock + '}';
+  }
+
+  public static class ProductBuilder {
+    private Long id;
+    private String name;
+    private BigDecimal price;
+    private int stock;
+
+    public ProductBuilder id(Long id) {
+      this.id = id;
+      return this;
+    }
+
+    public ProductBuilder name(String name) {
+      this.name = name;
+      return this;
+    }
+
+    public ProductBuilder price(BigDecimal price) {
+      this.price = price;
+      return this;
+    }
+
+    public ProductBuilder stock(int stock) {
+      this.stock = stock;
+      return this;
+    }
+
+    public Product build() {
+      Product product = new Product();
+      product.setId(id);
+      product.setName(name);
+      product.setPrice(price);
+      product.setStock(stock);
+      return product;
+    }
   }
 }
