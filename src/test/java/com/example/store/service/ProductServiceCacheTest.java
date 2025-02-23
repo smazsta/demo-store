@@ -3,6 +3,7 @@ package com.example.store.service;
 import com.example.store.cache.PageableCacheKey;
 import com.example.store.dto.ProductPage;
 import com.example.store.dto.ProductRequest;
+import com.example.store.dto.ProductResponse;
 import com.example.store.mapper.ProductMapper;
 import com.example.store.model.Product;
 import com.example.store.repository.ProductRepository;
@@ -22,6 +23,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -43,10 +45,10 @@ public class ProductServiceCacheTest {
 
   @BeforeEach
   void setup() {
-    assertNotNull(cacheManager.getCache("products"), "Cache 'products' should not be null");
-    assertNotNull(cacheManager.getCache("product"), "Cache 'product' should not be null");
-    cacheManager.getCache("products").clear();
-    cacheManager.getCache("product").clear();
+    assertNotNull(cacheManager.getCache("page"), "Cache 'products' should not be null");
+    assertNotNull(cacheManager.getCache("single"), "Cache 'product' should not be null");
+    cacheManager.getCache("page").clear();
+    cacheManager.getCache("single").clear();
   }
 
   @Nested
@@ -80,13 +82,15 @@ public class ProductServiceCacheTest {
       productService.getProducts(pageable1);
       productService.getProducts(pageable2);
 
-      Cache cache = cacheManager.getCache("products");
-      assertNotNull(cache);
+      Cache pageCache = cacheManager.getCache("page");
+      assertNotNull(pageCache);
+      Cache singleCache = cacheManager.getCache("single");
+      assertNotNull(singleCache);
 
       PageableCacheKey cacheKey1 = PageableCacheKey.of(pageable1);
       PageableCacheKey cacheKey2 = PageableCacheKey.of(pageable2);
-      assertNotNull(cache.get(cacheKey1));
-      assertNotNull(cache.get(cacheKey2));
+      assertNotNull(pageCache.get(cacheKey1));
+      assertNotNull(pageCache.get(cacheKey2));
 
       ProductRequest request = new ProductRequest("New Product", BigDecimal.valueOf(199.99), 20);
       Product newProduct = new Product.ProductBuilder()
@@ -99,8 +103,9 @@ public class ProductServiceCacheTest {
       when(productMapper.toProduct(request)).thenReturn(newProduct);
       productService.addProduct(request);
 
-      assertNull(cache.get(cacheKey1));
-      assertNull(cache.get(cacheKey2));
+      assertNull(pageCache.get(cacheKey1));
+      assertNull(pageCache.get(cacheKey2));
+      assertNotNull(singleCache.get(request.getName()));
     }
   }
 
@@ -135,11 +140,55 @@ public class ProductServiceCacheTest {
 
       verify(productRepository, times(1)).findAll(pageable);
 
-      Cache cache = cacheManager.getCache("products");
+      Cache cache = cacheManager.getCache("page");
       assertNotNull(cache);
 
       PageableCacheKey cacheKey = PageableCacheKey.of(pageable);
       assertNotNull(cache.get(cacheKey));
+    }
+  }
+
+  @Nested
+  class Update_Product {
+    @Test
+    @DisplayName("Should evict product from the cache")
+    void updateProduct_evictCacheTest() {
+      Product product = new Product.ProductBuilder()
+          .id(1L)
+          .name("Onion")
+          .price(BigDecimal.valueOf(99.99))
+          .stock(10)
+          .build();
+
+      ProductRequest productRequest = new ProductRequest(product.getName(), product.getPrice(), product.getStock());
+      ProductResponse productResponse = new ProductResponse(product.getId(), product.getName(), product.getPrice(),
+          product.getStock());
+
+      when(productRepository.save(any(Product.class))).thenReturn(product);
+      when(productMapper.toProductResponse(product)).thenReturn(productResponse);
+
+      productService.addProduct(productRequest);
+
+      Cache cache = cacheManager.getCache("single");
+      assertNotNull(cache);
+      assertNotNull(cache.get(product.getName()));
+
+      Product updated = new Product.ProductBuilder()
+          .id(1L)
+          .name("Onion")
+          .price(BigDecimal.valueOf(99.99))
+          .stock(16)
+          .build();
+      ProductResponse updatedResponse = new ProductResponse(updated.getId(), updated.getName(), updated.getPrice(),
+          updated.getStock());
+
+      when(productRepository.save(updated)).thenReturn(updated);
+      when(productRepository.findByName(product.getName())).thenReturn(Optional.of(product));
+      when(productMapper.toProductResponse(updated)).thenReturn(updatedResponse);
+
+      productService.updateStock(product.getName(), updated.getStock());
+
+      assertNull(cache.get(product.getName()));
     }
   }
 }
