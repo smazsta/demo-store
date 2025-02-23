@@ -9,7 +9,6 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @DataJpaTest
 class ProductRepositoryTest {
@@ -20,7 +19,11 @@ class ProductRepositoryTest {
   @Test
   @DisplayName("Should save Product in repository")
   void shouldSaveProductTest() {
-    Product expected = new Product("banana", BigDecimal.TEN, 10);
+    Product expected = new Product.ProductBuilder()
+        .name("Banana")
+        .price(BigDecimal.valueOf(0.99))
+        .stock(100)
+        .build();
 
     Product actual = productRepository.save(expected);
 

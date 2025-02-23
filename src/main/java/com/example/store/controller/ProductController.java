@@ -1,10 +1,11 @@
 package com.example.store.controller;
 
-import com.example.store.dto.PageableProductDTO;
-import com.example.store.dto.ProductDTO;
-import com.example.store.model.Product;
+import com.example.store.dto.ProductPage;
+import com.example.store.dto.ProductRequest;
+import com.example.store.dto.ProductResponse;
 import com.example.store.service.ProductService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -22,13 +23,24 @@ public class ProductController {
   }
 
   @PostMapping
-  public ResponseEntity<Product> addProduct(@RequestBody @Valid Product product) {
-    return ResponseEntity.ok(productService.addProduct(product));
+  public ResponseEntity<ProductResponse> addProduct(@RequestBody @Valid ProductRequest request) {
+    return ResponseEntity.ok(productService.addProduct(request));
+  }
+
+  @GetMapping("/{name}")
+  public ResponseEntity<ProductResponse> getProduct(@PathVariable String name) {
+    return ResponseEntity.ok(productService.getProduct(name));
   }
 
   @GetMapping
-  public ResponseEntity<PageableProductDTO> getProducts(
+  public ResponseEntity<ProductPage> getProducts(
       @PageableDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
     return ResponseEntity.ok(productService.getProducts(pageable));
+  }
+
+  @PatchMapping("/{name}/stock")
+  public ResponseEntity<ProductResponse> updateStock(@PathVariable("name") String name, @RequestParam("stock") @Min(0) int stock) {
+    ProductResponse updatedProduct = productService.updateStock(name, stock);
+    return ResponseEntity.ok(updatedProduct);
   }
 }

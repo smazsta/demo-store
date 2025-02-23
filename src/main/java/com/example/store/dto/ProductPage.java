@@ -2,9 +2,9 @@ package com.example.store.dto;
 
 import java.util.List;
 
-public class PageableProductDTO {
+public class ProductPage {
 
-  List<ProductDTO> content;
+  private List<ProductResponse> content;
 
   private int page;
 
@@ -14,7 +14,7 @@ public class PageableProductDTO {
 
   private long totalPages;
 
-  public PageableProductDTO(List<ProductDTO> content, int page, int size,
+  public ProductPage(List<ProductResponse> content, int page, int size,
       long totalElements, long totalPages) {
     this.content = content;
     this.page = page;
@@ -23,11 +23,11 @@ public class PageableProductDTO {
     this.totalPages = totalPages;
   }
 
-  public List<ProductDTO> getContent() {
+  public List<ProductResponse> getContent() {
     return content;
   }
 
-  public void setContent(List<ProductDTO> content) {
+  public void setContent(List<ProductResponse> content) {
     this.content = content;
   }
 
