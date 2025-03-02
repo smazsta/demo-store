@@ -4,6 +4,7 @@ import com.example.store.cache.PageableCacheKey;
 import com.example.store.dto.ProductPage;
 import com.example.store.dto.ProductRequest;
 import com.example.store.dto.ProductResponse;
+import com.example.store.exception.ResourceNotFoundException;
 import com.example.store.mapper.ProductMapper;
 import com.example.store.model.Product;
 import com.example.store.repository.ProductRepository;
@@ -25,6 +26,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -160,9 +162,10 @@ public class ProductServiceCacheTest {
           .stock(10)
           .build();
 
-      ProductRequest productRequest = new ProductRequest(product.getName(), product.getPrice(), product.getStock());
-      ProductResponse productResponse = new ProductResponse(product.getId(), product.getName(), product.getPrice(),
-          product.getStock());
+      ProductRequest productRequest =
+          new ProductRequest(product.getName(), product.getPrice(), product.getStock());
+      ProductResponse productResponse =
+          new ProductResponse(product.getId(), product.getName(), product.getPrice(), product.getStock());
 
       when(productRepository.save(any(Product.class))).thenReturn(product);
       when(productMapper.toProductResponse(product)).thenReturn(productResponse);
@@ -179,8 +182,8 @@ public class ProductServiceCacheTest {
           .price(BigDecimal.valueOf(99.99))
           .stock(16)
           .build();
-      ProductResponse updatedResponse = new ProductResponse(updated.getId(), updated.getName(), updated.getPrice(),
-          updated.getStock());
+      ProductResponse updatedResponse =
+          new ProductResponse(updated.getId(), updated.getName(), updated.getPrice(), updated.getStock());
 
       when(productRepository.save(updated)).thenReturn(updated);
       when(productRepository.findByName(product.getName())).thenReturn(Optional.of(product));
@@ -190,5 +193,42 @@ public class ProductServiceCacheTest {
 
       assertNull(cache.get(product.getName()));
     }
+  }
+
+  @Test
+  @DisplayName("Should retry in case of ResourceNotFoundException")
+  void updateProduct_retryTest() {
+    Product product = new Product.ProductBuilder()
+        .id(1L)
+        .name("Onion")
+        .price(BigDecimal.valueOf(99.99))
+        .stock(10)
+        .build();
+
+    when(productRepository.findByName(product.getName()))
+        .thenThrow(new ResourceNotFoundException("Product not found"))
+        .thenReturn(Optional.of(product));
+
+    Exception exception = assertThrows(
+        ResourceNotFoundException.class,
+        () -> productService.updateStock(product.getName(), 5)
+    );
+
+    assertEquals("Product not found", exception.getMessage());
+
+    verify(productRepository, times(2)).findByName(product.getName());
+  }
+
+  @Test
+  @DisplayName("Should retry updating stock 3 times and then fail")
+  void updateStock_RetryExhausted() {
+    when(productRepository.findByName("Test Product"))
+        .thenThrow(new ResourceNotFoundException("Product not found"));
+
+    assertThatThrownBy(() -> productService.updateStock("Test Product", 5))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Product not found");
+
+    verify(productRepository, times(3)).findByName("Test Product");
   }
 }

@@ -7,14 +7,16 @@ import com.example.store.exception.ResourceNotFoundException;
 import com.example.store.mapper.ProductMapper;
 import com.example.store.model.Product;
 import com.example.store.repository.ProductRepository;
-import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -30,6 +32,7 @@ public class ProductService {
     this.productMapper = productMapper;
   }
 
+  @Transactional
   @CacheEvict(value = "page", allEntries = true)
   @CachePut(value = "single", key = "#p0.getName()")
   public ProductResponse addProduct(ProductRequest productRequest) {
@@ -38,6 +41,7 @@ public class ProductService {
     return productMapper.toProductResponse(savedProduct);
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "single", key = "#p0")
   public ProductResponse getProduct(String name) {
     return productRepository.findByName(name)
@@ -45,6 +49,7 @@ public class ProductService {
         .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "page", key = "T(com.example.store.cache.PageableCacheKey).of(#p0)")
   public ProductPage getProducts(Pageable pageable) throws IllegalArgumentException {
     validatePageable(pageable);
@@ -71,6 +76,12 @@ public class ProductService {
     }
   }
 
+  @Transactional
+  @Retryable(
+      retryFor = {ResourceNotFoundException.class},
+      maxAttempts = 3,
+      backoff = @Backoff(delay = 1000, multiplier = 2)
+  )
   @CacheEvict(value = {"page", "single"}, allEntries = true)
   public ProductResponse updateStock(String name, int stock) {
     Product product = productRepository.findByName(name)
